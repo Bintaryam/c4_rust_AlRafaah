@@ -1,2 +1,5 @@
 // src/lib.rs
-pub mod lexer;
+pub mod lexer;// src/lib.rs
+pub mod ast;
+pub mod parser;
+
