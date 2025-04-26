@@ -15,8 +15,15 @@ pub enum Token {
     /// char literal, with escape processing
     Char(char),
 
-    // keywords
-    KwChar, KwElse, KwEnum, KwIf, KwInt, KwReturn, KwSizeof, KwWhile,
+    KwVoid,
+    KwInt,
+    KwChar,
+    KwEnum,
+    KwIf,
+    KwElse,
+    KwWhile,
+    KwReturn,
+    KwSizeof,
 
     // binary operators and punctuation
     Plus, Minus, Star, Slash, Percent,
@@ -142,16 +149,19 @@ impl<'a> Lexer<'a> {
                 }
             }
             let ident = &self.input[idx..end + ch.len_utf8()];
-            return Ok(match ident {
-                "char" => Token::KwChar,
-                "else" => Token::KwElse,
-                "enum" => Token::KwEnum,
-                "if" => Token::KwIf,
-                "int" => Token::KwInt,
-                "return" => Token::KwReturn,
-                "sizeof" => Token::KwSizeof,
-                "while" => Token::KwWhile,
-                _ => Token::Ident(ident.to_string()), // Default to identifier.
+        
+        
+        return Ok(match ident {
+            "void"   => Token::KwVoid,
+            "char"   => Token::KwChar,
+            "else"   => Token::KwElse,
+            "enum"   => Token::KwEnum,
+            "if"     => Token::KwIf,
+            "int"    => Token::KwInt,
+            "return" => Token::KwReturn,
+            "sizeof" => Token::KwSizeof,
+            "while"  => Token::KwWhile,
+            _        => Token::Ident(ident.to_string()),
             });
         }
 
