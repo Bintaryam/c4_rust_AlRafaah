@@ -101,7 +101,7 @@ fn skip_comments_and_whitespace() {
     let src = "  // this is a comment\n  42 // another\n+\n";
     let mut lx = Lexer::new(src);
     assert_eq!(lx.next_token().unwrap(), Token::Num(42)); // Number after comment.
-    assert_eq!(lx.next_token().unwrap(), Token::Plus); // Operator after whitespace.
+    assert_eq!(lx.next_token().unwrap(), Token::Plus);    // Operator after whitespace.
     assert_eq!(lx.next_token().unwrap(), Token::Eof);
 }
 
@@ -113,4 +113,62 @@ fn error_unexpected_character() {
         Err(LexError(msg)) => assert!(msg.contains("@")), // Ensure error mentions the character.
         Ok(tok) => panic!("Expected error, got {:?}", tok), // Fail if no error.
     }
+}
+
+// ─── New Tests for Full Coverage ───────────────────────────────────
+
+// Test lexing of hex and octal integer literals.
+#[test]
+fn lex_hex_and_octal_numbers() {
+    expect_tokens!(
+        "0 0755 0x1A3F 0XdeadBEEF",
+        Token::Num(0),
+        Token::Num(0o755),
+        Token::Num(0x1A3F),
+        Token::Num(0xDEADBEEF),
+    );
+}
+
+// Test lexing of '!' (Not), '!=' (Ne) and '~' (Tilde).
+#[test]
+fn lex_not_and_tilde() {
+    expect_tokens!("! != ~", Token::Not, Token::Ne, Token::Tilde);
+}
+
+// Test skipping of preprocessor lines starting with '#'.
+#[test]
+fn skip_preprocessor_lines() {
+    let src = "#define X 42\n  X";
+    let mut lx = Lexer::new(src);
+    assert_eq!(lx.next_token().unwrap(), Token::Ident("X".into()));
+    assert_eq!(lx.next_token().unwrap(), Token::Eof);
+}
+
+// Test lexing tokens adjacent without whitespace.
+#[test]
+fn lex_adjacent_tokens() {
+    expect_tokens!("foo(bar)+123;",
+        Token::Ident("foo".into()),
+        Token::LParen, Token::Ident("bar".into()), Token::RParen,
+        Token::Plus, Token::Num(123), Token::Semicolon
+    );
+}
+
+// Test string literals containing escaped quotes and backslashes.
+#[test]
+fn lex_string_with_quotes_and_backslashes() {
+    let s = r#""She said: \"Hi!\" and \\OK\\""#;
+    let mut lx = Lexer::new(s);
+    assert_eq!(
+        lx.next_token().unwrap(),
+        Token::Str("She said: \"Hi!\" and \\OK\\".into())
+    );
+    assert_eq!(lx.next_token().unwrap(), Token::Eof);
+}
+
+// Test error on unterminated string literal.
+#[test]
+fn error_unterminated_string() {
+    let mut lx = Lexer::new("\"no end");
+    assert!(lx.next_token().is_err());
 }
