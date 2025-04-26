@@ -29,6 +29,9 @@ pub enum Token {
     Shl, Shr,      // '<<', '>>'
     Inc, Dec,      // '++', '--'
 
+    // bitwise NOT
+    Tilde,        // '~'
+
     // ternary/punctuation
     Question, Colon,
     Semicolon, Comma,
@@ -71,18 +74,58 @@ impl<'a> Lexer<'a> {
 
         // Handle numeric literals.
         if ch.is_ascii_digit() {
-            let mut end = idx;
-            while let Some(&(_, c)) = self.iter.peek() {
-                if c.is_ascii_digit() {
-                    end += c.len_utf8();
-                    self.iter.next();
-                } else {
-                    break;
+            let start = idx;
+            let mut end = idx + ch.len_utf8();
+            let mut base = 10;
+
+            // hex & octal support
+            if ch == '0' {
+                if let Some(&(_, next)) = self.iter.peek() {
+                    match next {
+                        'x' | 'X' => {
+                            base = 16;
+                            // consume 'x' or 'X'
+                            self.iter.next();
+                            end += next.len_utf8();
+                            // consume hex digits
+                            while let Some(&(_, c)) = self.iter.peek() {
+                                if c.is_ascii_hexdigit() {
+                                    end += c.len_utf8();
+                                    self.iter.next();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        '0'..='7' => {
+                            base = 8;
+                            // consume octal digits
+                            while let Some(&(_, c)) = self.iter.peek() {
+                                if ('0'..='7').contains(&c) {
+                                    end += c.len_utf8();
+                                    self.iter.next();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        _ => { /* single '0', leave base=10 */ }
+                    }
+                }
+            } else {
+                // decimal: consume more digits
+                while let Some(&(_, c)) = self.iter.peek() {
+                    if c.is_ascii_digit() {
+                        end += c.len_utf8();
+                        self.iter.next();
+                    } else {
+                        break;
+                    }
                 }
             }
-            let slice = &self.input[idx..end + ch.len_utf8()];
-            let val = slice
-                .parse::<i64>() // Parse as i64.
+
+            let slice = &self.input[start..end];
+            let val = i64::from_str_radix(slice, base)
                 .map_err(|e| LexError(e.to_string()))?;
             return Ok(Token::Num(val));
         }
@@ -151,7 +194,8 @@ impl<'a> Lexer<'a> {
             if let Some(&(_, '\'')) = self.iter.peek() {
                 self.iter.next();
             }
-            return Ok(Token::Char(c));
+            // fold into Num
+            return Ok(Token::Num(c as i64));
         }
 
         // Handle two-character operators.
@@ -189,6 +233,7 @@ impl<'a> Lexer<'a> {
             '&' => Token::And,
             '|' => Token::Or,
             '^' => Token::Xor,
+            '~' => Token::Tilde,   // support '~'
             '?' => Token::Question,
             ':' => Token::Colon,
             ';' => Token::Semicolon,
@@ -204,7 +249,7 @@ impl<'a> Lexer<'a> {
         Ok(tok)
     }
 
-    /// Skip whitespace and comments in the input.
+    /// Skip whitespace, comments, and preprocessor lines in the input.
     fn skip_whitespace_and_comments(&mut self) {
         while let Some(&(_, c)) = self.iter.peek() {
             if c.is_whitespace() {
@@ -225,6 +270,15 @@ impl<'a> Lexer<'a> {
                     }
                 } else {
                     break; // Not a comment.
+                }
+            } else if c == '#' {
+                // Consume preprocessor line.
+                self.iter.next();
+                while let Some(&(_, c2)) = self.iter.peek() {
+                    self.iter.next();
+                    if c2 == '\n' {
+                        break;
+                    }
                 }
             } else {
                 break; // Stop skipping.
