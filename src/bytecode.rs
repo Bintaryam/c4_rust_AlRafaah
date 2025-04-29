@@ -1,89 +1,99 @@
-//! Bytecode instruction set for the C4 virtual machine.
+/// Defines the bytecode instruction set, along with helper data structures
+/// that represent compiled bytecode chunks in the Rust version of the C4 compiler.
 
-/// Virtual machine opcodes (operations).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum OpCode {
-    // Stack and memory operations
-    Imm,    // Load immediate value into accumulator
-    Lc,     // Load char from address in accumulator
-    Li,     // Load int from address in accumulator
-    Sc,     // Store char to address on stack
-    Si,     // Store int to address on stack
-    Push,   // Push accumulator onto stack
-    Pop,    // Pop stack (optional if needed)
+    // Stack/Memory
+    LEA,
+    IMM,
+    JMP,
+    JSR,
+    BZ,
+    BNZ,
+    ENT,
+    ADJ,
+    LEV,
+    LI,
+    LC,
+    SI,
+    SC,
+    PSH,
 
-    // Arithmetic operations
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
+    // Binary operations
+    OR,
+    XOR,
+    AND,
+    EQ,
+    NE,
+    LT,
+    GT,
+    LE,
+    GE,
+    SHL,
+    SHR,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    MOD,
 
-    // Logical and bitwise operations
-    Shl,
-    Shr,
-    And,
-    Or,
-    Xor,
-    Not,    // Bitwise NOT (~)
-
-    // Comparison operations (results in 0 or 1)
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-
-    // Control flow
-    Jmp,    // Unconditional jump
-    Jz,     // Jump if accumulator == 0
-    Jnz,    // Jump if accumulator != 0
-    Call,   // Call subroutine
-    Ent,    // Enter subroutine: setup stack frame
-    Adj,    // Adjust stack pointer after call
-    Lev,    // Leave subroutine: teardown stack frame
-    Ret,    // Return from subroutine (alias for Lev or special)
-
-    // System calls / runtime
-    Exit,   // Exit program
-    Open,
-    Read,
-    Close,
-    Printf,
-    Malloc,
-    Free,
-    Memset,
-    Memcpy,
-
-    // Additional
-    Halt,   // Stop execution (for safety)
+    // System calls (as seen in original c4)
+    OPEN,
+    READ,
+    CLOS,
+    PRTF,
+    MALC,
+    FREE,
+    MSET,
+    MCMP,
+    EXIT,
 }
 
-/// A single bytecode instruction.
-/// Some opcodes have an optional operand (e.g., IMM 42).
-#[derive(Debug, Clone)]
-pub struct Instruction {
-    pub opcode: OpCode,
-    pub operand: Option<i32>,
+/// A single instruction can be an OpCode with optional operands
+#[derive(Debug, Clone, PartialEq)]
+pub enum Instruction {
+    /// Raw instruction with optional operands
+    Instr(OpCode),
+    /// Instruction with immediate value (e.g. IMM, LEA, ADJ)
+    InstrInt(OpCode, i64),
+    /// Jump instructions with target address
+    Jump(OpCode, usize),
+    /// Call instruction with target address
+    Call(OpCode, usize),
 }
 
-impl Instruction {
-    /// Helper to create an instruction without an operand.
-    pub fn new(opcode: OpCode) -> Self {
-        Self {
-            opcode,
-            operand: None,
-        }
+/// Represents a compiled chunk of instructions
+#[derive(Debug, Default)]
+pub struct Chunk {
+    pub code: Vec<Instruction>,
+}
+
+impl Chunk {
+    /// Add a no-operand instruction
+    pub fn push(&mut self, op: OpCode) {
+        self.code.push(Instruction::Instr(op));
     }
 
-    /// Helper to create an instruction with an operand.
-    pub fn with_operand(opcode: OpCode, operand: i32) -> Self {
-        Self {
-            opcode,
-            operand: Some(operand),
+    /// Add an instruction with an integer operand (e.g., IMM 42)
+    pub fn push_int(&mut self, op: OpCode, val: i64) {
+        self.code.push(Instruction::InstrInt(op, val));
+    }
+
+    /// Add a jump instruction
+    pub fn push_jump(&mut self, op: OpCode, target: usize) {
+        self.code.push(Instruction::Jump(op, target));
+    }
+
+    /// Add a call instruction
+    pub fn push_call(&mut self, op: OpCode, target: usize) {
+        self.code.push(Instruction::Call(op, target));
+    }
+
+    /// Debug helper to print all instructions
+    pub fn dump(&self) {
+        for (i, instr) in self.code.iter().enumerate() {
+            println!("{:04}: {:?}", i, instr);
         }
     }
 }
-
