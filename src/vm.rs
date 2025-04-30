@@ -1,5 +1,124 @@
 use crate::bytecode::{Chunk, Instruction, OpCode};
+use crate::ast::*;
 
+impl Program {
+    pub fn compile(&self, chunk: &mut Chunk) -> Result<(), String> {
+        for item in &self.items {
+            item.compile(chunk)?;
+        }
+        Ok(())
+    }
+}
+
+impl Item {
+    pub fn compile(&self, chunk: &mut Chunk) -> Result<(), String> {
+        match self {
+            Item::Function(f) => f.compile(chunk),
+            _ => Ok(()), // Ignore global/enum for now
+        }
+    }
+}
+
+impl FuncDef {
+    pub fn compile(&self, chunk: &mut Chunk) -> Result<(), String> {
+        if self.name == "main" {
+            let entry = chunk.code.len() + 2;
+            chunk.push_call(OpCode::JSR, entry);
+            chunk.push(OpCode::EXIT);
+        }
+
+        let local_count = self.locals.len() as i64;
+        chunk.push_int(OpCode::ENT, local_count);
+
+        for stmt in &self.body.stmts {
+            stmt.compile(chunk)?;
+        }
+
+        chunk.push(OpCode::LEV);
+        Ok(())
+    }
+}
+
+impl Stmt {
+    pub fn compile(&self, chunk: &mut Chunk) -> Result<(), String> {
+        match self {
+            Stmt::Expr(e) => {
+                e.compile(chunk)?;
+                // Don't push ADJ since result is in register `a`, not the stack
+                Ok(())
+            }
+            Stmt::Return(Some(e)) => {
+                e.compile(chunk)?;
+                chunk.push(OpCode::LEV);
+                Ok(())
+            }
+            Stmt::Return(None) => {
+                chunk.push(OpCode::LEV);
+                Ok(())
+            }
+            Stmt::Block(b) => {
+                for stmt in &b.stmts {
+                    stmt.compile(chunk)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+
+impl Expr {
+    pub fn compile(&self, chunk: &mut Chunk) -> Result<(), String> {
+        match self {
+            Expr::Num(n) => chunk.push_int(OpCode::IMM, *n),
+            Expr::Binary { op, left, right } => {
+                left.compile(chunk)?;
+                chunk.push(OpCode::PSH);
+                right.compile(chunk)?;
+
+                let code = match op {
+                    BinOp::Add => OpCode::ADD,
+                    BinOp::Sub => OpCode::SUB,
+                    BinOp::Mul => OpCode::MUL,
+                    BinOp::Div => OpCode::DIV,
+                    BinOp::Mod => OpCode::MOD,
+                    BinOp::Eq  => OpCode::EQ,
+                    BinOp::Ne  => OpCode::NE,
+                    BinOp::Lt  => OpCode::LT,
+                    BinOp::Le  => OpCode::LE,
+                    BinOp::Gt  => OpCode::GT,
+                    BinOp::Ge  => OpCode::GE,
+                    BinOp::BitAnd => OpCode::AND,
+                    BinOp::BitOr  => OpCode::OR,
+                    BinOp::Xor    => OpCode::XOR,
+                    BinOp::Shl    => OpCode::SHL,
+                    BinOp::Shr    => OpCode::SHR,
+                    _ => return Err(format!("unsupported op: {:?}", op)),
+                };
+
+                chunk.push(code);
+            }
+            Expr::Call { callee, args } => {
+                for arg in args {
+                    arg.compile(chunk)?;
+                    chunk.push(OpCode::PSH);
+                }
+                if let Expr::Var(name) = &**callee {
+                    if name == "main" {
+                        chunk.push_call(OpCode::JSR, 2); // hardcoded
+                    } else {
+                        return Err(format!("unsupported function call: {}", name));
+                    }
+                } else {
+                    return Err("callee must be a named function".into());
+                }
+            }
+            _ => return Err(format!("unsupported expr: {:?}", self)),
+        }
+        Ok(())
+    }
+}
 pub struct VM {
     stack: Vec<i64>,
     call_stack: Vec<(usize, usize, usize)>, // (return_pc, old_bp, old_fp)
