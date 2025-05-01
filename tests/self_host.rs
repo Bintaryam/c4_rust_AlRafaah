@@ -6,7 +6,23 @@ fn test_self_host_output_matches_c4() {
     let project_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let c4_path = project_dir.join("c4.c");
     let c4_exe = project_dir.join("c4.exe");
+    
+      println!("Building c4.exe using gcc...");
+    let build_output = Command::new("gcc")
+        .arg(c4_path.to_str().unwrap())
+        .arg("-o") 
+        .arg(&c4_exe) 
+        .output()
+        .expect("Failed to execute gcc");
 
+    // Output build result
+    if !build_output.status.success() {
+        eprintln!("Build failed! Output: {:?}", build_output);
+        panic!("Failed to build c4.exe");
+    } else {
+        println!("Build successful! The output is located at: {:?}", c4_exe);
+    }
+    
     assert!(c4_path.exists(), "c4.c not found");
     assert!(c4_exe.exists(), "c4.exe not found");
 
