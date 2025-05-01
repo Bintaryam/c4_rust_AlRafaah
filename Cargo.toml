@@ -4,3 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
+[[test]]
+name = "lexer_tests"
+path = "tests/lexer_tests.rs"
+
+[[test]]
+name = "parser_tests"
+path = "tests/parser_tests.rs"
+
+[[test]]
+name = "bytecode_tests"
+path = "tests/bytecode_tests.rs"
+
+[[test]]
+name = "vm_tests"
+path = "tests/vm_tests.rs"
+
+[[test]]
+name = "self_host"
+path = "tests/self_host.rs"
+
