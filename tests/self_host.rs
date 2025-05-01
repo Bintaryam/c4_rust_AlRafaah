@@ -15,7 +15,7 @@ fn test_self_host_output_matches_c4() {
         .output()
         .expect("Failed to execute gcc");
 
-    // Output build result
+    
     if !build_output.status.success() {
         eprintln!("Build failed! Output: {:?}", build_output);
         panic!("Failed to build c4.exe");
